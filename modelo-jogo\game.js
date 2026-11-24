@@ -1,217 +1,470 @@
-/*
- * MODELO DE JOGO — Jogos VR
- * -------------------------
- * Este arquivo é seu. Troque a lógica, o placar e as regras.
- * O que NÃO deve mudar é o contrato com o portal, explicado abaixo.
- */
-(function () {
-  "use strict";
+// Configurações principais do Truco Matemático
+const MAXIMO_RODADAS = 8;
+const PONTOS_PARA_VENCER = 12;
 
-  // 1. Configuração: mude à vontade.
-  var CONFIG = {
-    rounds: 10,
-    title: "Clique no Alvo",
-  };
+// Valores do baralho de Truco em ordem crescente de força
+const VALORES_CARTAS = ["4", "5", "6", "7", "Q", "J", "K", "A", "2", "3"];
 
-  var state = {
-    score: 0,
-    round: 0,
-    startedAt: null,
-    finished: false,
-    timerId: null,
-  };
+// Naipes em ordem crescente de força (usado para desempatar manilhas)
+const NAIPES = [
+  { simbolo: "♦", nome: "Ouros", cor: "vermelha", forca: 1 },
+  { simbolo: "♠", nome: "Espadas", cor: "preta", forca: 2 },
+  { simbolo: "♥", nome: "Copas", cor: "vermelha", forca: 3 },
+  { simbolo: "♣", nome: "Paus", cor: "preta", forca: 4 }
+];
 
-  var els = {
-    board: document.getElementById("board"),
-    score: document.getElementById("score"),
-    total: document.getElementById("total"),
-    timer: document.getElementById("timer"),
-    hint: document.getElementById("start-hint"),
-    restart: document.getElementById("restart"),
-    result: document.getElementById("result"),
-    resultText: document.getElementById("result-text"),
-    playAgain: document.getElementById("play-again"),
-  };
+// Estado atual do jogo
+const estadoJogo = {
+  rodadaAtual: 1,
+  pontosJogador: 0,
+  pontosPc: 0,
+  valorRodada: 1,
+  trucoPedido: false,
+  manilhaValor: "4",
+  maoJogador: [],
+  cartaPcAtual: null,
+  cartaEscolhidaJogador: null,
+  desafioAtual: null,
+  tempoInicio: 0,
+  jogoAtivo: false
+};
 
-  // 2. Avisa o portal que o jogo carregou.
+// Elementos da tela (HTML)
+const el = {
+  infoRodada: document.getElementById("info-rodada"),
+  pontosJogador: document.getElementById("pontos-jogador"),
+  pontosPc: document.getElementById("pontos-pc"),
+  valorRodada: document.getElementById("valor-rodada"),
+  btnTema: document.getElementById("btn-tema"),
+  cartaPc: document.getElementById("carta-pc"),
+  cartaJogadorMesa: document.getElementById("carta-jogador-mesa"),
+  maoCartas: document.getElementById("mao-cartas"),
+  badgeManilha: document.getElementById("badge-manilha"),
+  instrucaoJogada: document.getElementById("instrucao-jogada"),
+  btnTruco: document.getElementById("btn-truco"),
+  etiquetaDesafio: document.getElementById("etiqueta-desafio"),
+  expressaoMatematica: document.getElementById("expressao-matematica"),
+  opcoesResposta: document.getElementById("opcoes-resposta"),
+  tituloFeedback: document.getElementById("titulo-feedback"),
+  textoFeedback: document.getElementById("texto-feedback"),
+  tituloFim: document.getElementById("titulo-fim"),
+  resumoFim: document.getElementById("resumo-fim"),
+  telas: {
+    inicio: document.getElementById("tela-inicio"),
+    jogada: document.getElementById("tela-jogada"),
+    conta: document.getElementById("tela-conta"),
+    feedback: document.getElementById("tela-feedback"),
+    fim: document.getElementById("tela-fim")
+  }
+};
+
+// --- COMUNICAÇÃO COM O PORTAL (Contrato obrigatório) ---
+
+function avisarAlturaPortal() {
+  const altura = document.documentElement.scrollHeight;
+  window.parent.postMessage({ type: "vrgame:resize", height: altura }, "*");
+}
+
+function aplicarTema(tema) {
+  if (tema === "dark" || tema === "escuro") {
+    document.documentElement.setAttribute("data-theme", "dark");
+  } else {
+    document.documentElement.removeAttribute("data-theme");
+  }
+  avisarAlturaPortal();
+}
+
+window.addEventListener("message", (evento) => {
+  const dados = evento.data;
+  if (!dados || typeof dados !== "object") return;
+
+  if (dados.type === "vrgame:theme") {
+    aplicarTema(dados.theme || dados.value);
+  }
+
+  if (dados.type === "vrgame:fullscreen") {
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    } else {
+      document.documentElement.requestFullscreen().catch(() => {});
+    }
+  }
+});
+
+window.addEventListener("resize", avisarAlturaPortal);
+
+window.addEventListener("load", () => {
+  // Detecta preferência inicial do sistema
+  if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
+    aplicarTema("dark");
+  }
   window.parent.postMessage({ type: "vrgame:ready" }, "*");
+  avisarAlturaPortal();
+});
 
-  function formatTime(ms) {
-    return (ms / 1000).toFixed(1).replace(".", ",") + "s";
-  }
+// --- LÓGICA DO BARALHO E REGRAS DO TRUCO ---
 
-  function startTimer() {
-    if (state.startedAt) return;
-    state.startedAt = Date.now();
-    state.timerId = window.setInterval(function () {
-      els.timer.textContent = formatTime(Date.now() - state.startedAt);
-    }, 100);
-  }
-
-  function stopTimer() {
-    if (state.timerId) {
-      window.clearInterval(state.timerId);
-      state.timerId = null;
+function criarBaralhoEmbaralhado() {
+  const baralho = [];
+  for (let i = 0; i < VALORES_CARTAS.length; i++) {
+    for (let j = 0; j < NAIPES.length; j++) {
+      baralho.push({
+        valor: VALORES_CARTAS[i],
+        indiceValor: i,
+        naipe: NAIPES[j]
+      });
     }
   }
 
-  function spawnTarget() {
-    var old = els.board.querySelector(".target");
-    if (old) old.remove();
-
-    var size = 64;
-    var maxX = Math.max(0, els.board.clientWidth - size - 8);
-    var maxY = Math.max(0, els.board.clientHeight - size - 8);
-
-    var button = document.createElement("button");
-    button.type = "button";
-    button.className = "target";
-    button.setAttribute("aria-label", "Alvo " + (state.round + 1));
-    button.style.left = 4 + Math.random() * maxX + "px";
-    button.style.top = 4 + Math.random() * maxY + "px";
-    button.addEventListener("click", hitTarget);
-    els.board.appendChild(button);
-    button.focus();
+  // Embaralha usando algoritmo Fisher-Yates
+  for (let i = baralho.length - 1; i > 0; i--) {
+    const k = Math.floor(Math.random() * (i + 1));
+    const temp = baralho[i];
+    baralho[i] = baralho[k];
+    baralho[k] = temp;
   }
+  return baralho;
+}
 
-  function hitTarget() {
-    if (state.finished) return;
-    startTimer();
+// Calcula a força real de uma carta considerando a manilha da rodada
+function calcularForcaCarta(carta) {
+  const ehManilha = carta.valor === estadoJogo.manilhaValor;
+  if (ehManilha) {
+    // Manilha ganha de qualquer carta comum (força base 100 + força do naipe)
+    return 100 + carta.naipe.forca;
+  }
+  return carta.indiceValor;
+}
 
-    state.score += 1;
-    state.round += 1;
-    els.score.textContent = String(state.score);
+// --- GERADOR DE DESAFIOS MATEMÁTICOS ---
 
-    if (state.round >= CONFIG.rounds) {
-      finish();
-      return;
+function gerarDesafioMatematico(rodada) {
+  // Dificuldade aumenta gradualmente conforme a rodada
+  let numA, numB, operacao, respostaCerta, explicacao;
+
+  if (rodada <= 2) {
+    // Rodadas iniciais: soma e subtração simples
+    numA = Math.floor(Math.random() * 20) + 10;
+    numB = Math.floor(Math.random() * 15) + 5;
+    if (Math.random() < 0.5) {
+      operacao = "+";
+      respostaCerta = numA + numB;
+      explicacao = `${numA} + ${numB} = ${respostaCerta}`;
+    } else {
+      operacao = "-";
+      respostaCerta = numA - numB;
+      explicacao = `${numA} - ${numB} = ${respostaCerta}`;
     }
-
-    spawnTarget();
-  }
-
-  function finish() {
-    state.finished = true;
-    stopTimer();
-    var timeMs = state.startedAt ? Date.now() - state.startedAt : 0;
-
-    els.result.hidden = false;
-    els.resultText.textContent =
-      "Você acertou " +
-      state.score +
-      " de " +
-      CONFIG.rounds +
-      " alvos em " +
-      formatTime(timeMs) +
-      ".";
-
-    // 3. Avisa o portal que a partida terminou e envia o resultado.
-    window.parent.postMessage(
-      {
-        type: "vrgame:finish",
-        score: state.score,
-        maxScore: CONFIG.rounds,
-        timeMs: timeMs,
-        detail: { mode: "template" },
-      },
-      "*"
-    );
-  }
-
-  function reset() {
-    stopTimer();
-    state.score = 0;
-    state.round = 0;
-    state.startedAt = null;
-    state.finished = false;
-    els.score.textContent = "0";
-    els.timer.textContent = "0,0s";
-    els.result.hidden = true;
-    els.hint.hidden = false;
-    els.total.textContent = String(CONFIG.rounds);
-
-    var old = els.board.querySelector(".target");
-    if (old) old.remove();
-  }
-
-  // 4. O portal avisa se o tema é claro ou escuro.
-  function applyTheme(theme) {
-    if (theme === "dark" || theme === "light") {
-      document.documentElement.dataset.theme = theme;
+  } else if (rodada <= 5) {
+    // Rodadas intermediárias: multiplicação ou soma maior
+    if (Math.random() < 0.6) {
+      numA = Math.floor(Math.random() * 8) + 3;
+      numB = Math.floor(Math.random() * 8) + 3;
+      operacao = "×";
+      respostaCerta = numA * numB;
+      explicacao = `${numA} × ${numB} = ${respostaCerta}`;
+    } else {
+      numA = Math.floor(Math.random() * 45) + 25;
+      numB = Math.floor(Math.random() * 35) + 15;
+      operacao = "+";
+      respostaCerta = numA + numB;
+      explicacao = `${numA} + ${numB} = ${respostaCerta}`;
+    }
+  } else {
+    // Rodadas finais: multiplicações maiores ou expressões com dois passos
+    if (Math.random() < 0.5) {
+      numA = Math.floor(Math.random() * 7) + 6;
+      numB = Math.floor(Math.random() * 6) + 7;
+      operacao = "×";
+      respostaCerta = numA * numB;
+      explicacao = `${numA} × ${numB} = ${respostaCerta}`;
+    } else {
+      numA = Math.floor(Math.random() * 6) + 3;
+      numB = Math.floor(Math.random() * 5) + 2;
+      const numC = Math.floor(Math.random() * 10) + 4;
+      respostaCerta = numA * numB + numC;
+      explicacao = `Primeiro multiplicamos (${numA} × ${numB} = ${numA * numB}) e depois somamos ${numC}, dando ${respostaCerta}`;
+      return {
+        texto: `${numA} × ${numB} + ${numC} = ?`,
+        respostaCerta,
+        explicacao,
+        opcoes: gerarOpcoesAlternativas(respostaCerta)
+      };
     }
   }
 
-  // Na nova aba não existe portal: ?theme= > localStorage > preferência do sistema.
-  function preferredTheme() {
-    try {
-      var fromQuery = new URLSearchParams(window.location.search).get("theme");
-      if (fromQuery === "dark" || fromQuery === "light") return fromQuery;
-    } catch (error) {
-      // URLSearchParams indisponível: segue para a próxima opção
-    }
+  return {
+    texto: `${numA} ${operacao} ${numB} = ?`,
+    respostaCerta,
+    explicacao,
+    opcoes: gerarOpcoesAlternativas(respostaCerta)
+  };
+}
 
-    try {
-      var saved = window.localStorage.getItem("theme");
-      if (saved === "dark" || saved === "light") return saved;
-    } catch (error) {
-      // armazenamento bloqueado: usa a preferência do sistema
-    }
+function gerarOpcoesAlternativas(correta) {
+  const opcoes = new Set([correta]);
+  const variacoes = [-10, -4, -2, -1, 1, 2, 4, 10];
 
-    return window.matchMedia("(prefers-color-scheme: dark)").matches
-      ? "dark"
-      : "light";
+  while (opcoes.size < 4) {
+    const desvio = variacoes[Math.floor(Math.random() * variacoes.length)];
+    const candidata = correta + desvio;
+    if (candidata > 0 && candidata !== correta) {
+      opcoes.add(candidata);
+    }
   }
 
-  var lastHeight = 0;
+  // Embaralha as 4 opções
+  return Array.from(opcoes).sort(() => Math.random() - 0.5);
+}
 
-  function reportHeight() {
-    var height = Math.ceil(document.body.getBoundingClientRect().height);
-    if (Math.abs(height - lastHeight) < 4) return;
-    lastHeight = height;
-    window.parent.postMessage({ type: "vrgame:resize", height: height }, "*");
+// --- CONTROLE DE INTERFACE ---
+
+function mostrarPainel(nomeTela) {
+  Object.keys(el.telas).forEach((chave) => {
+    el.telas[chave].classList.toggle("ativo", chave === nomeTela);
+  });
+  avisarAlturaPortal();
+}
+
+function atualizarPlacarVisual() {
+  el.infoRodada.textContent = `Rodada ${estadoJogo.rodadaAtual} de ${MAXIMO_RODADAS}`;
+  el.pontosJogador.textContent = estadoJogo.pontosJogador;
+  el.pontosPc.textContent = estadoJogo.pontosPc;
+  el.valorRodada.textContent = `${estadoJogo.valorRodada} ${estadoJogo.valorRodada === 1 ? "pt" : "pts"}`;
+}
+
+function criarHtmlCarta(carta, revelada = true) {
+  if (!revelada) {
+    return `<span class="carta-centro">?</span>`;
+  }
+  const ehManilha = carta.valor === estadoJogo.manilhaValor;
+  const tagManilha = ehManilha ? `<span class="tag-manilha">Manilha</span>` : "";
+
+  return `
+    <span class="carta-topo">${carta.valor} ${carta.naipe.simbolo}</span>
+    <span class="carta-centro">${carta.naipe.simbolo}</span>
+    <span class="carta-base">${carta.valor} ${carta.naipe.simbolo}</span>
+    ${tagManilha}
+  `;
+}
+
+function renderizarCartaNaMesa(elemento, carta, revelada = true) {
+  elemento.className = "carta";
+  if (!carta) {
+    elemento.classList.add("carta-vazia");
+    elemento.innerHTML = `<span class="carta-centro">-</span>`;
+    return;
   }
 
-  window.addEventListener("message", function (event) {
-    if (!event.data) return;
+  if (!revelada) {
+    elemento.classList.add("carta-pc", "oculta");
+    elemento.innerHTML = `<span class="carta-centro">?</span>`;
+    return;
+  }
 
-    if (event.data.type === "vrgame:theme") {
-      applyTheme(event.data.theme);
-    }
+  elemento.classList.add(carta.naipe.cor);
+  if (carta.valor === estadoJogo.manilhaValor) {
+    elemento.classList.add("manilha");
+  }
+  elemento.innerHTML = criarHtmlCarta(carta, true);
+}
 
-    if (event.data.type === "vrgame:fullscreen") {
-      document.documentElement.classList.toggle(
-        "is-fullscreen",
-        Boolean(event.data.fullscreen)
-      );
+function renderizarMaoJogador(habilitada = true) {
+  el.maoCartas.innerHTML = "";
+
+  estadoJogo.maoJogador.forEach((carta, indice) => {
+    const botao = document.createElement("button");
+    botao.type = "button";
+    botao.className = "btn-carta";
+    botao.disabled = !habilitada;
+    botao.setAttribute("aria-label", `Carta ${carta.valor} de ${carta.naipe.nome}`);
+
+    const divCarta = document.createElement("div");
+    divCarta.className = `carta ${carta.naipe.cor}`;
+    if (carta.valor === estadoJogo.manilhaValor) {
+      divCarta.classList.add("manilha");
     }
+    divCarta.innerHTML = criarHtmlCarta(carta, true);
+
+    botao.appendChild(divCarta);
+    botao.addEventListener("click", () => selecionarCartaJogador(indice));
+    el.maoCartas.appendChild(botao);
+  });
+}
+
+// --- FLUXO DA PARTIDA ---
+
+function iniciarNovaPartida() {
+  estadoJogo.rodadaAtual = 1;
+  estadoJogo.pontosJogador = 0;
+  estadoJogo.pontosPc = 0;
+  estadoJogo.tempoInicio = Date.now();
+  estadoJogo.jogoAtivo = true;
+
+  prepararRodada();
+}
+
+function prepararRodada() {
+  estadoJogo.valorRodada = 1;
+  estadoJogo.trucoPedido = false;
+  estadoJogo.cartaEscolhidaJogador = null;
+
+  const baralho = criarBaralhoEmbaralhado();
+
+  // Define a carta "vira" e descobre qual é a manilha da rodada
+  const vira = baralho.pop();
+  const indiceManilha = (vira.indiceValor + 1) % VALORES_CARTAS.length;
+  estadoJogo.manilhaValor = VALORES_CARTAS[indiceManilha];
+
+  // Distribui 3 cartas para o jogador e 1 carta para o PC jogar na mesa
+  estadoJogo.maoJogador = [baralho.pop(), baralho.pop(), baralho.pop()];
+  estadoJogo.cartaPcAtual = baralho.pop();
+
+  // Atualiza elementos na tela
+  atualizarPlacarVisual();
+  el.badgeManilha.textContent = `${estadoJogo.manilhaValor} (vira: ${vira.valor}${vira.naipe.simbolo})`;
+  el.btnTruco.disabled = false;
+  el.btnTruco.textContent = "PEDIR TRUCO! (3 pts)";
+  el.instrucaoJogada.textContent = "Escolha uma carta abaixo para enfrentar o PC!";
+
+  // PC joga sua carta virada para cima para o jogador pensar na estratégia
+  renderizarCartaNaMesa(el.cartaPc, estadoJogo.cartaPcAtual, true);
+  renderizarCartaNaMesa(el.cartaJogadorMesa, null);
+  renderizarMaoJogador(true);
+
+  mostrarPainel("jogada");
+}
+
+function pedirTruco() {
+  if (estadoJogo.trucoPedido) return;
+  estadoJogo.trucoPedido = true;
+  estadoJogo.valorRodada = 3;
+  el.btnTruco.disabled = true;
+  el.btnTruco.textContent = "TRUCO PEDIDO! (Vale 3 pts)";
+  el.instrucaoJogada.textContent = "Agora escolha sua melhor carta e acerte a conta!";
+  atualizarPlacarVisual();
+}
+
+function selecionarCartaJogador(indice) {
+  estadoJogo.cartaEscolhidaJogador = estadoJogo.maoJogador[indice];
+
+  // Mostra a carta escolhida na mesa e trava a mão
+  renderizarCartaNaMesa(el.cartaJogadorMesa, estadoJogo.cartaEscolhidaJogador, true);
+  renderizarMaoJogador(false);
+
+  // Gera o cálculo mental
+  estadoJogo.desafioAtual = gerarDesafioMatematico(estadoJogo.rodadaAtual);
+  el.etiquetaDesafio.textContent = estadoJogo.trucoPedido
+    ? "Desafio do TRUCO! Acerte para valer 3 pontos:"
+    : "Resolva de cabeça para confirmar sua jogada:";
+  el.expressaoMatematica.textContent = estadoJogo.desafioAtual.texto;
+
+  // Cria os botões de alternativa
+  el.opcoesResposta.innerHTML = "";
+  estadoJogo.desafioAtual.opcoes.forEach((valorOpcao) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "btn-opcao";
+    btn.textContent = valorOpcao;
+    btn.addEventListener("click", () => verificarRespostaMatematica(valorOpcao));
+    el.opcoesResposta.appendChild(btn);
   });
 
-  els.board.addEventListener("pointerdown", function () {
-    if (state.round === 0 && !state.finished) {
-      els.hint.hidden = true;
-      spawnTarget();
-    }
-  });
+  mostrarPainel("conta");
+}
 
-  els.restart.addEventListener("click", reset);
-  els.playAgain.addEventListener("click", reset);
+function verificarRespostaMatematica(respostaEscolhida) {
+  const desafio = estadoJogo.desafioAtual;
+  const acertouConta = respostaEscolhida === desafio.respostaCerta;
 
-  applyTheme(preferredTheme());
+  const cartaJog = estadoJogo.cartaEscolhidaJogador;
+  const cartaPc = estadoJogo.cartaPcAtual;
+  const forcaJogador = calcularForcaCarta(cartaJog);
+  const forcaPc = calcularForcaCarta(cartaPc);
 
-  if (window.self === window.top) {
-    document.documentElement.classList.add("is-standalone");
+  const pontosDisputados = estadoJogo.valorRodada;
+  let titulo = "";
+  let mensagem = "";
+
+  if (!acertouConta) {
+    // Errou a conta: PC ganha os pontos da rodada
+    estadoJogo.pontosPc += pontosDisputados;
+    titulo = "Ops! Cálculo incorreto";
+    mensagem = `Você marcou ${respostaEscolhida}, mas ${desafio.explicacao}. O PC levou ${pontosDisputados} ${pontosDisputados === 1 ? "ponto" : "pontos"}.`;
+  } else if (forcaJogador > forcaPc) {
+    // Acertou a conta e tem carta mais forte
+    estadoJogo.pontosJogador += pontosDisputados;
+    titulo = "Jogada perfeita! Você venceu!";
+    mensagem = `Acertou (${desafio.explicacao}) e seu ${cartaJog.valor}${cartaJog.naipe.simbolo} ganhou do ${cartaPc.valor}${cartaPc.naipe.simbolo} do PC! (+${pontosDisputados} ${pontosDisputados === 1 ? "pt" : "pts"})`;
+  } else if (forcaJogador < forcaPc) {
+    // Acertou a conta, mas a carta do PC era mais forte
+    estadoJogo.pontosPc += pontosDisputados;
+    titulo = "Conta certa, mas carta mais fraca";
+    mensagem = `Você acertou (${desafio.explicacao}), porém o ${cartaPc.valor}${cartaPc.naipe.simbolo} do PC é mais forte que o seu ${cartaJog.valor}${cartaJog.naipe.simbolo}. O PC marcou ${pontosDisputados} ${pontosDisputados === 1 ? "pt" : "pts"}.`;
+  } else {
+    // Empate exato de força (cangou)
+    titulo = "Empate na mesa!";
+    mensagem = `Você acertou (${desafio.explicacao}), e as duas cartas (${cartaJog.valor} e ${cartaPc.valor}) têm a mesma força. Ninguém pontuou!`;
   }
 
-  window.addEventListener("storage", function (event) {
-    if (event.key === "theme") applyTheme(event.newValue);
-  });
+  atualizarPlacarVisual();
+  el.tituloFeedback.textContent = titulo;
+  el.textoFeedback.textContent = mensagem;
+  mostrarPainel("feedback");
+}
 
-  window.addEventListener("resize", reportHeight);
-  if ("ResizeObserver" in window) {
-    new ResizeObserver(reportHeight).observe(document.body);
+function avancarOuEncerrar() {
+  const alguemBateuMeta =
+    estadoJogo.pontosJogador >= PONTOS_PARA_VENCER ||
+    estadoJogo.pontosPc >= PONTOS_PARA_VENCER;
+
+  if (alguemBateuMeta || estadoJogo.rodadaAtual >= MAXIMO_RODADAS) {
+    encerrarPartida();
+  } else {
+    estadoJogo.rodadaAtual += 1;
+    prepararRodada();
   }
-  window.requestAnimationFrame(reportHeight);
+}
 
-  els.total.textContent = String(CONFIG.rounds);
-  document.getElementById("title").textContent = CONFIG.title;
-})();
+function encerrarPartida() {
+  estadoJogo.jogoAtivo = false;
+  const tempoEmMs = Date.now() - estadoJogo.tempoInicio;
+
+  let tituloFinal = "";
+  if (estadoJogo.pontosJogador > estadoJogo.pontosPc) {
+    tituloFinal = "Parabéns! Você venceu o Truco Matemático!";
+  } else if (estadoJogo.pontosJogador < estadoJogo.pontosPc) {
+    tituloFinal = "O PC venceu desta vez!";
+  } else {
+    tituloFinal = "Partida empatada!";
+  }
+
+  el.tituloFim.textContent = tituloFinal;
+  el.resumoFim.textContent = `Placar final: Você ${estadoJogo.pontosJogador} x ${estadoJogo.pontosPc} PC.`;
+  el.maoCartas.innerHTML = "";
+  mostrarPainel("fim");
+
+  // Envia resultado final para o portal da escola
+  window.parent.postMessage(
+    {
+      type: "vrgame:finish",
+      score: estadoJogo.pontosJogador,
+      maxScore: PONTOS_PARA_VENCER,
+      timeMs: tempoEmMs,
+      detail: { jogo: "truco-matematico" }
+    },
+    "*"
+  );
+}
+
+// --- EVENTOS DE CLIQUE ---
+
+document.getElementById("btn-iniciar").addEventListener("click", iniciarNovaPartida);
+el.btnTruco.addEventListener("click", pedirTruco);
+document.getElementById("btn-proxima").addEventListener("click", avancarOuEncerrar);
+document.getElementById("btn-reiniciar").addEventListener("click", iniciarNovaPartida);
+
+el.btnTema.addEventListener("click", () => {
+  const temaEscuroAtivo = document.documentElement.getAttribute("data-theme") === "dark";
+  aplicarTema(temaEscuroAtivo ? "light" : "dark");
+});

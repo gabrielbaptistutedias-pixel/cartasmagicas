@@ -1,38 +1,35 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450" role="img" aria-label="Capa de modelo de jogo">
-  <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#0b1120" />
-      <stop offset="1" stop-color="#1e3a8a" />
-    </linearGradient>
-    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-      <path d="M40 0H0V40" fill="none" stroke="#ffffff" stroke-opacity="0.07" />
-    </pattern>
-  </defs>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450" width="800" height="450">
+  
+  <rect width="800" height="450" fill="#1b5e3f" />
+  <rect x="16" y="16" width="768" height="418" rx="24" fill="none" stroke="#8c5a2b" stroke-width="12" />
 
-  <rect width="800" height="450" fill="url(#bg)" />
-  <rect width="800" height="450" fill="url(#grid)" />
-  <circle cx="690" cy="60" r="150" fill="#3b82f6" opacity="0.2" />
+  
+  <circle cx="400" cy="225" r="150" fill="#14452f" opacity="0.65" />
 
-  <g font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif">
-    <text x="56" y="72" fill="#93c5fd" font-size="15" font-weight="800" letter-spacing="4">JOGOS VR</text>
-
-    <g transform="translate(520 130)">
-      <circle cx="90" cy="90" r="86" fill="none" stroke="#334155" stroke-width="14" />
-      <circle cx="90" cy="90" r="56" fill="none" stroke="#f59e0b" stroke-width="14" />
-      <circle cx="90" cy="90" r="26" fill="#3b82f6" />
-      <circle cx="90" cy="90" r="8" fill="#ffffff" />
-    </g>
-
-    <text x="56" y="280" fill="#ffffff" font-size="54" font-weight="900" letter-spacing="-1.5">Seu jogo aqui</text>
-    <text x="58" y="320" fill="#bfdbfe" font-size="19" font-weight="600">Copie esta pasta, troque o conteúdo e entregue.</text>
-
-    <g transform="translate(58 352)">
-      <rect width="128" height="34" rx="17" fill="#ffffff" fill-opacity="0.1" stroke="#ffffff" stroke-opacity="0.2" />
-      <text x="64" y="22" fill="#e2e8f0" font-size="12" font-weight="700" text-anchor="middle">pasta-modelo</text>
-    </g>
-    <g transform="translate(198 352)">
-      <rect width="150" height="34" rx="17" fill="#ffffff" fill-opacity="0.1" stroke="#ffffff" stroke-opacity="0.2" />
-      <text x="75" y="22" fill="#e2e8f0" font-size="12" font-weight="700" text-anchor="middle">HTML + CSS + JS</text>
-    </g>
+  
+  <g transform="translate(150, 120) rotate(-12)">
+    <rect x="0" y="0" width="120" height="170" rx="14" fill="#ffffff" stroke="#eab308" stroke-width="5" />
+    <text x="16" y="34" font-family="sans-serif" font-size="26" font-weight="bold" fill="#1e293b">4</text>
+    <text x="16" y="60" font-family="sans-serif" font-size="24" fill="#1e293b">♣</text>
+    <text x="60" y="102" font-family="sans-serif" font-size="52" text-anchor="middle" fill="#1e293b">♣</text>
+    <rect x="20" y="138" width="80" height="20" rx="4" fill="#eab308" />
+    <text x="60" y="152" font-family="sans-serif" font-size="11" font-weight="bold" text-anchor="middle" fill="#1a241e">MANILHA</text>
   </g>
+
+  
+  <g transform="translate(535, 95) rotate(12)">
+    <rect x="0" y="0" width="120" height="170" rx="14" fill="#ffffff" stroke="#cbd5e1" stroke-width="4" />
+    <text x="16" y="34" font-family="sans-serif" font-size="26" font-weight="bold" fill="#d92626">A</text>
+    <text x="16" y="60" font-family="sans-serif" font-size="24" fill="#d92626">♥</text>
+    <text x="60" y="102" font-family="sans-serif" font-size="52" text-anchor="middle" fill="#d92626">♥</text>
+    <text x="104" y="154" font-family="sans-serif" font-size="26" font-weight="bold" text-anchor="end" fill="#d92626">A</text>
+  </g>
+
+  
+  <rect x="175" y="165" width="450" height="115" rx="18" fill="#0f291e" stroke="#eab308" stroke-width="4" />
+  <text x="400" y="218" font-family="sans-serif" font-size="40" font-weight="bold" text-anchor="middle" fill="#ffffff">TRUCO MATEMÁTICO</text>
+  <text x="400" y="255" font-family="sans-serif" font-size="22" font-weight="bold" text-anchor="middle" fill="#eab308">12 × 3 + 4 = ?</text>
+
+  
+  <text x="400" y="395" font-family="sans-serif" font-size="18" font-weight="bold" text-anchor="middle" fill="#e2e8f0">Cálculo Mental Rápido • 12 Pontos para Vencer</text>
 </svg>

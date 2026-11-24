@@ -1,48 +1,116 @@
-<!doctype html>
-<html lang="pt-BR" data-theme="light">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="color-scheme" content="light dark" />
-    <title>Modelo de Jogo — Jogos VR</title>
-    <link rel="stylesheet" href="style.css" />
-  </head>
-  <body>
-    <div class="app">
-      <header class="top">
-        <div>
-          <span class="kicker">Modelo</span>
-          <h1 id="title">Clique no Alvo</h1>
-          <p class="subtitle">Troque este jogo pelo seu. O contrato já está pronto.</p>
-        </div>
-        <button id="restart" class="btn" type="button">Reiniciar</button>
-      </header>
-
-      <main>
-        <div class="hud">
-          <span class="pill">Alvos: <strong id="score">0</strong>/<span id="total">10</span></span>
-          <span class="pill">Tempo: <strong id="timer">0,0s</strong></span>
-        </div>
-
-        <div id="board" class="board" aria-label="Área do jogo">
-          <p id="start-hint" class="start-hint">Clique no alvo para começar</p>
-        </div>
-      </main>
-
-      <footer class="bottom">
-        <p>Este é o arquivo <code>game.js</code>. Leia os comentários e adapte.</p>
-      </footer>
-    </div>
-
-    <div id="result" class="overlay" hidden>
-      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="result-title">
-        <div class="modal-icon" aria-hidden="true">🎯</div>
-        <h2 id="result-title">Muito bem!</h2>
-        <p id="result-text">Você concluiu o jogo.</p>
-        <button id="play-again" class="btn btn-primary full" type="button">Jogar de novo</button>
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Truco Matemático</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="mesa-jogo" id="mesa-jogo">
+    <!-- Cabeçalho com placar e controles -->
+    <header class="cabecalho">
+      <div class="titulo-area">
+        <h1>Truco Matemático</h1>
+        <span class="subtitulo" id="info-rodada">Rodada 1 de 8</span>
       </div>
-    </div>
 
-    <script src="game.js"></script>
-  </body>
+      <div class="placar" aria-live="polite">
+        <div class="ponto-caixa voce">
+          <span class="rotulo">Você</span>
+          <strong id="pontos-jogador">0</strong>
+        </div>
+        <div class="ponto-caixa valor-mao">
+          <span class="rotulo">Vale</span>
+          <strong id="valor-rodada">1 pt</strong>
+        </div>
+        <div class="ponto-caixa oponente">
+          <span class="rotulo">PC</span>
+          <strong id="pontos-pc">0</strong>
+        </div>
+      </div>
+
+      <button type="button" id="btn-tema" class="btn-icone" aria-label="Alternar tema claro e escuro" title="Mudar tema">
+        🌓
+      </button>
+    </header>
+
+    <!-- Barra de força das cartas (Ordem do Truco) -->
+    <section class="ordem-cartas" aria-label="Ordem de força das cartas">
+      <span>Fraca</span>
+      <span class="sequencia">4 &lt; 5 &lt; 6 &lt; 7 &lt; Q &lt; J &lt; K &lt; A &lt; 2 &lt; 3 &lt; <strong>Manilha</strong></span>
+      <span>Forte</span>
+    </section>
+
+    <!-- Área central da mesa -->
+    <section class="area-duelo">
+      <!-- Carta do Computador -->
+      <div class="slot-carta">
+        <span class="dono-carta">Carta do PC</span>
+        <div class="carta carta-pc" id="carta-pc" aria-live="polite">
+          <span class="carta-centro">?</span>
+        </div>
+      </div>
+
+      <!-- Painel central de desafio matemático ou feedback -->
+      <div class="painel-central" id="painel-central">
+        <!-- Tela inicial -->
+        <div id="tela-inicio" class="estado-painel ativo">
+          <p class="texto-destaque">Vença a carta do PC e acerte o cálculo mental para marcar pontos!</p>
+          <p class="dica-manilha">A manilha da rodada vale mais que todas as outras.</p>
+          <button type="button" id="btn-iniciar" class="btn-principal">Começar Partida</button>
+        </div>
+
+        <!-- Escolha de carta -->
+        <div id="tela-jogada" class="estado-painel">
+          <div class="info-manilha">
+            Manilha da rodada: <strong id="badge-manilha">4 ♦</strong>
+          </div>
+          <p id="instrucao-jogada" class="texto-instrucao">Escolha uma carta abaixo para jogar!</p>
+          <button type="button" id="btn-truco" class="btn-truco">PEDIR TRUCO! (3 pts)</button>
+        </div>
+
+        <!-- Desafio matemático -->
+        <div id="tela-conta" class="estado-painel" aria-live="assertive">
+          <span class="etiqueta-desafio" id="etiqueta-desafio">Confirme sua jogada!</span>
+          <div class="expressao-matematica" id="expressao-matematica">12 + 15 = ?</div>
+          <div class="opcoes-resposta" id="opcoes-resposta">
+            <!-- Botões gerados pelo JS -->
+          </div>
+        </div>
+
+        <!-- Resultado da rodada -->
+        <div id="tela-feedback" class="estado-painel" aria-live="polite">
+          <h2 id="titulo-feedback">Você venceu a rodada!</h2>
+          <p id="texto-feedback">Explicação do resultado aqui.</p>
+          <button type="button" id="btn-proxima" class="btn-principal">Próxima Rodada</button>
+        </div>
+
+        <!-- Fim de jogo -->
+        <div id="tela-fim" class="estado-painel" aria-live="polite">
+          <h2 id="titulo-fim">Fim de Jogo!</h2>
+          <p id="resumo-fim">Você fez 12 pontos contra 6 do PC.</p>
+          <button type="button" id="btn-reiniciar" class="btn-principal">Jogar Novamente</button>
+        </div>
+      </div>
+
+      <!-- Carta jogada por Você -->
+      <div class="slot-carta">
+        <span class="dono-carta">Sua jogada</span>
+        <div class="carta carta-vazia" id="carta-jogador-mesa" aria-live="polite">
+          <span class="carta-centro">-</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Mão do jogador -->
+    <section class="mao-jogador" aria-label="Suas cartas na mão">
+      <div class="lista-cartas" id="mao-cartas">
+        <!-- Cartas geradas pelo JS -->
+      </div>
+    </section>
+  </main>
+
+  <script src="game.js"></script>
+</body>
 </html>

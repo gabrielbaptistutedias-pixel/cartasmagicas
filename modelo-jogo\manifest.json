@@ -1,16 +1,16 @@
 {
-  "slug": "meu-jogo",
-  "title": "Nome do meu jogo",
-  "author": "Seu nome",
-  "authorClass": "Sua turma",
-  "discipline": "Matemática",
-  "grades": ["6º", "7º"],
-  "tags": ["palavra-chave", "outra-palavra"],
-  "description": "Uma frase curta que explica o que o jogo ensina.",
-  "instructions": "Como jogar, em uma ou duas frases.",
-  "duration": 5,
+  "slug": "truco-matematico",
+  "title": "Truco Matemático",
+  "author": "Gabriel",
+  "authorClass": "9º ano C",
+  "discipline": "Educação Digital / Matemática",
+  "grades": ["6º ano", "7º ano", "8º ano", "9º ano"],
+  "tags": ["matemática", "cálculo mental", "cartas", "truco", "raciocínio rápido"],
+  "description": "Jogo de cartas inspirado no Truco clássico onde o jogador precisa vencer a carta do computador e resolver cálculos mentais rápidos para marcar pontos.",
+  "instructions": "Observe a manilha da rodada e a carta do computador. Se quiser arriscar por 3 pontos, clique em Pedir Truco. Escolha uma carta da sua mão e clique na resposta certa da conta matemática para confirmar sua jogada. Vence quem chegar primeiro a 12 pontos ou tiver mais pontos ao final de 8 rodadas.",
+  "duration": "3 min",
   "version": "1.0.0",
   "entry": "index.html",
   "cover": "cover.svg",
-  "createdAt": "2026-11-02"
+  "createdAt": "2026-11-24"
 }
